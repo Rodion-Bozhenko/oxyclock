@@ -5,3 +5,5 @@ edition = "2021"
 
 [dependencies]
 iced = {git = "https://github.com/iced-rs/iced", branch = "master", features = ["debug", "tokio"]}
+notify-rust = "4.11.3"
+rodio = "0.19.0"

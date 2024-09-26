@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{fmt::Display, time::Duration};
 
 use iced::{
     alignment::{Horizontal, Vertical},
@@ -26,6 +26,7 @@ enum Msg {
     Start,
     Stop,
     Reset,
+    PlayNotification,
     Hours(String),
     Minutes(String),
     Seconds(String),
@@ -34,6 +35,7 @@ enum Msg {
 #[derive(Debug, Clone, PartialEq)]
 enum State {
     Running,
+    NotificationSound,
     Stopped,
 }
 
@@ -75,15 +77,36 @@ impl Timer {
                 Task::none()
             }
             Msg::Reset => {
+                self.state = State::Stopped;
                 self.time = Duration::from_secs(0);
                 self.update_elapsed_hms();
                 Task::none()
             }
+            Msg::PlayNotification => {
+                self.state = State::NotificationSound;
+                Task::done(Msg::Stop)
+            }
             Msg::Tick => {
-                if self.time <= Duration::from_secs(1) {
-                    self.state = State::Stopped;
+                if self.state != State::Running {
                     return Task::none();
                 }
+
+                if self.time <= Duration::from_secs(1) {
+                    if let Err(err) = notify_rust::Notification::new()
+                        .summary("Timer is done!")
+                        .body("Your timer has finished")
+                        .appname("oxyclock")
+                        .show()
+                    {
+                        eprintln!("failed to send notification: {err}");
+                    }
+
+                    self.time = Duration::from_secs(0);
+                    self.update_elapsed_hms();
+
+                    return Task::done(Msg::PlayNotification);
+                }
+
                 let tick = Duration::from_secs(1);
                 self.time -= tick;
                 self.elapsed += tick;
@@ -107,6 +130,12 @@ impl Timer {
     fn subscription(&self) -> Subscription<Msg> {
         match self.state {
             State::Running => iced::time::every(Duration::from_secs(1)).map(|_| Msg::Tick),
+            State::NotificationSound => {
+                if let Err(err) = play_notification_sound() {
+                    eprintln!("failed to play notification sound: {err}");
+                }
+                Subscription::none()
+            }
             State::Stopped => Subscription::none(),
         }
     }
@@ -314,6 +343,35 @@ fn steady_time_container<'a>(hours: &str, minutes: &str, seconds: &str) -> Conta
     .align_y(Vertical::Center)
     .height(70);
     container(time_inputs)
+}
+
+enum NotificationError {
+    PlayError(rodio::PlayError),
+    StreamError(rodio::StreamError),
+    FsError(std::io::Error),
+}
+
+impl Display for NotificationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::PlayError(err) => write!(f, "{err}"),
+            Self::StreamError(err) => write!(f, "{err}"),
+            Self::FsError(err) => write!(f, "{err}"),
+        }
+    }
+}
+
+fn play_notification_sound() -> Result<(), NotificationError> {
+    let (_stream, stream_handle) =
+        rodio::OutputStream::try_default().map_err(NotificationError::StreamError)?;
+    let file = std::io::BufReader::new(
+        std::fs::File::open("sounds/lofi-alarm-clock.mp3").map_err(NotificationError::FsError)?,
+    );
+    let sink = rodio::Sink::try_new(&stream_handle).map_err(NotificationError::PlayError)?;
+    let source = rodio::Decoder::new_mp3(file).unwrap();
+    sink.append(source);
+    sink.sleep_until_end();
+    Ok(())
 }
 
 fn start_icon<'a>() -> Element<'a, Msg> {
