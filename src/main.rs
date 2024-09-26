@@ -1,9 +1,13 @@
 use std::time::Duration;
 
 use iced::{
-    theme,
-    widget::{button, column, container, row, text, text_input, TextInput},
-    Alignment, Background, Border, Color, Element, Font, Length, Subscription, Task, Theme,
+    alignment::{Horizontal, Vertical},
+    border, theme,
+    widget::{
+        button, column, container, horizontal_space, row, text, text_input, Button, Container, Row,
+        Text, TextInput,
+    },
+    Alignment, Border, Element, Font, Length, Shadow, Subscription, Task, Theme,
 };
 
 fn main() -> iced::Result {
@@ -13,6 +17,8 @@ fn main() -> iced::Result {
         .font(include_bytes!("../fonts/oxyclock-fonts.ttf").as_slice())
         .run()
 }
+
+const TEXT_SIZE: u16 = 50;
 
 #[derive(Debug, Clone)]
 enum Msg {
@@ -106,40 +112,48 @@ impl Timer {
     }
 
     fn view(&self) -> Element<Msg> {
+        let title = text("Oxyclock").size(70).style(text::primary);
+
         let started = self.state == State::Running;
 
-        let start_button = if started {
-            container(button(stop_icon()).on_press(Msg::Stop))
+        let buttons = if started {
+            container(custom_button(stop_icon(), CustomButtonType::Primary).on_press(Msg::Stop))
         } else {
             container(
                 row![
-                    button(reset_icon()).on_press(Msg::Reset),
-                    button(start_icon()).on_press(Msg::Start),
+                    custom_button(reset_icon(), CustomButtonType::Secondary).on_press(Msg::Reset),
+                    custom_button(start_icon(), CustomButtonType::Primary).on_press(Msg::Start),
                 ]
                 .spacing(10),
             )
         };
 
         let time_container = if started {
-            container(text(time_to_hms_string(self.time)).size(50))
+            running_time_container(self.time)
         } else {
-            let time_inputs = row![
-                time_input(&self.hours, Msg::Hours),
-                time_input(&self.minutes, Msg::Minutes),
-                time_input(&self.seconds, Msg::Seconds),
-            ];
-            container(time_inputs)
+            steady_time_container(&self.hours, &self.minutes, &self.seconds)
         };
 
-        let column = column![time_container, start_button];
+        let main = column![time_container, buttons]
+            .spacing(20)
+            .align_x(Alignment::Center);
 
-        container(column.spacing(10).align_x(Alignment::Center))
-            .center(Length::Fill)
-            .into()
+        container(
+            column![
+                horizontal_space().height(Length::FillPortion(1)),
+                title,
+                main,
+                horizontal_space().height(Length::FillPortion(2))
+            ]
+            .align_x(Horizontal::Center)
+            .spacing(100),
+        )
+        .center(Length::Fill)
+        .into()
     }
 
     fn theme(&self) -> theme::Theme {
-        theme::Theme::Nord
+        theme::Theme::CatppuccinMocha
     }
 
     fn update_elapsed_hms(&mut self) {
@@ -162,22 +176,77 @@ fn time_input<F>(value: &str, msg: F) -> TextInput<'static, Msg, Theme, iced::Re
 where
     F: 'static + Fn(String) -> Msg,
 {
-    // text_input("", &format!("{:02}", value.parse::<u64>().unwrap()))
     text_input("", value)
+        .align_x(Horizontal::Center)
         .width(70)
-        .size(50)
-        .style(|_, _| text_input::Style {
-            border: Border {
-                width: 0.0,
-                ..Border::default()
-            },
-            background: Background::Color(Color::default()),
-            icon: Color::WHITE,
-            placeholder: Color::WHITE,
-            value: Color::WHITE,
-            selection: Color::default(),
+        .size(TEXT_SIZE)
+        .style(|theme: &Theme, _| {
+            let palette = theme.palette();
+            text_input::Style {
+                background: theme
+                    .extended_palette()
+                    .secondary
+                    .weak
+                    .color
+                    .scale_alpha(0.1)
+                    .into(),
+                border: Border::default().rounded(8),
+                icon: palette.text,
+                placeholder: palette.text.scale_alpha(0.3),
+                value: palette.text,
+                selection: palette.primary.scale_alpha(0.7),
+            }
         })
         .on_input(msg)
+}
+
+#[derive(PartialEq)]
+enum CustomButtonType {
+    Primary,
+    Secondary,
+}
+
+fn custom_button<'a>(
+    content: impl Into<Element<'a, Msg>>,
+    button_type: CustomButtonType,
+) -> Button<'a, Msg> {
+    button(container(content).center(Length::Fill))
+        .width(60)
+        .height(40)
+        .style(move |theme: &Theme, status: button::Status| {
+            let palette = theme.palette();
+            let ext_palette = theme.extended_palette();
+            match status {
+                button::Status::Active => button::Style {
+                    background: Some(if button_type == CustomButtonType::Primary {
+                        ext_palette.primary.strong.color.into()
+                    } else {
+                        ext_palette.secondary.strong.color.into()
+                    }),
+                    text_color: palette.text,
+                    border: border::rounded(8.0),
+                    shadow: Shadow::default(),
+                },
+                button::Status::Hovered => button::Style {
+                    background: Some(palette.primary.into()),
+                    text_color: palette.text,
+                    border: border::rounded(8.0),
+                    shadow: Shadow::default(),
+                },
+                button::Status::Disabled => button::Style {
+                    background: Some(ext_palette.primary.weak.color.into()),
+                    text_color: palette.text,
+                    border: border::rounded(8.0),
+                    shadow: Shadow::default(),
+                },
+                button::Status::Pressed => button::Style {
+                    background: Some(palette.primary.into()),
+                    text_color: palette.text,
+                    border: border::rounded(8.0),
+                    shadow: Shadow::default(),
+                },
+            }
+        })
 }
 
 fn get_duration(
@@ -193,13 +262,58 @@ fn get_duration(
     Ok(Duration::from_secs(total_secs))
 }
 
-fn time_to_hms_string(duration: Duration) -> String {
+fn time_to_hms_string<'a>(duration: Duration) -> Row<'a, Msg> {
     let total_secs = duration.as_secs();
-    let hours = total_secs / 3600;
-    let minutes = (total_secs % 3600) / 60;
-    let seconds = total_secs % 60;
+    let hours = format!("{:02}", total_secs / 3600);
+    let minutes = format!("{:02}", (total_secs % 3600) / 60);
+    let seconds = format!("{:02}", total_secs % 60);
 
-    format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
+    fn time_text<'a>(t: String) -> Text<'a> {
+        text(t)
+            .width(70)
+            .size(TEXT_SIZE)
+            .align_x(Horizontal::Center)
+    }
+
+    row![
+        time_text(hours),
+        text(":").size(TEXT_SIZE).align_x(Horizontal::Center),
+        time_text(minutes),
+        text(":").size(TEXT_SIZE).align_x(Horizontal::Center),
+        time_text(seconds)
+    ]
+    .height(70)
+    .align_y(Vertical::Center)
+}
+
+fn running_time_container<'a>(time: Duration) -> Container<'a, Msg> {
+    container(time_to_hms_string(time)).style(|theme: &Theme| container::Style {
+        text_color: None,
+        background: Some(
+            theme
+                .extended_palette()
+                .secondary
+                .weak
+                .color
+                .scale_alpha(0.1)
+                .into(),
+        ),
+        border: Border::default().rounded(8),
+        shadow: Shadow::default(),
+    })
+}
+
+fn steady_time_container<'a>(hours: &str, minutes: &str, seconds: &str) -> Container<'a, Msg> {
+    let time_inputs = row![
+        time_input(hours, Msg::Hours),
+        text(":").size(TEXT_SIZE),
+        time_input(minutes, Msg::Minutes),
+        text(":").size(TEXT_SIZE),
+        time_input(seconds, Msg::Seconds),
+    ]
+    .align_y(Vertical::Center)
+    .height(70);
+    container(time_inputs)
 }
 
 fn start_icon<'a>() -> Element<'a, Msg> {
