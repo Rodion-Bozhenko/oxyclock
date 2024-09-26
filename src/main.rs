@@ -144,11 +144,11 @@ impl Timer {
 
     fn update_elapsed_hms(&mut self) {
         let mut elapsed = self.time.as_secs();
-        self.hours = (elapsed / 3600).to_string();
+        self.hours = format!("{:02}", (elapsed / 3600));
         elapsed %= 3600;
-        self.minutes = (elapsed / 60).to_string();
+        self.minutes = format!("{:02}", (elapsed / 60));
         elapsed %= 60;
-        self.seconds = elapsed.to_string();
+        self.seconds = format!("{:02}", elapsed);
     }
 }
 
