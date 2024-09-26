@@ -3,11 +3,11 @@ use std::time::Duration;
 use iced::{
     theme,
     widget::{button, column, container, row, text, text_input, TextInput},
-    Alignment, Background, Border, Color, Command, Element, Font, Subscription, Theme,
+    Alignment, Background, Border, Color, Element, Font, Length, Subscription, Task, Theme,
 };
 
 fn main() -> iced::Result {
-    iced::program("Oxyclock", Timer::update, Timer::view)
+    iced::application("Oxyclock", Timer::update, Timer::view)
         .theme(Timer::theme)
         .subscription(Timer::subscription)
         .font(include_bytes!("../fonts/oxyclock-fonts.ttf").as_slice())
@@ -52,7 +52,7 @@ impl Timer {
         }
     }
 
-    fn update(&mut self, msg: Msg) -> Command<Msg> {
+    fn update(&mut self, msg: Msg) -> Task<Msg> {
         match msg {
             Msg::Start => {
                 let duration = get_duration(&self.hours, &self.minutes, &self.seconds);
@@ -61,39 +61,39 @@ impl Timer {
                     self.time = duration;
                     self.elapsed = Duration::from_secs(0);
                 }
-                Command::none()
+                Task::none()
             }
             Msg::Stop => {
                 self.state = State::Stopped;
                 self.update_elapsed_hms();
-                Command::none()
+                Task::none()
             }
             Msg::Reset => {
                 self.time = Duration::from_secs(0);
                 self.update_elapsed_hms();
-                Command::none()
+                Task::none()
             }
             Msg::Tick => {
                 if self.time <= Duration::from_secs(1) {
                     self.state = State::Stopped;
-                    return Command::none();
+                    return Task::none();
                 }
                 let tick = Duration::from_secs(1);
                 self.time -= tick;
                 self.elapsed += tick;
-                Command::none()
+                Task::none()
             }
             Msg::Hours(hours) => {
                 self.hours = hours;
-                Command::none()
+                Task::none()
             }
             Msg::Minutes(minutes) => {
                 self.minutes = minutes;
-                Command::none()
+                Task::none()
             }
             Msg::Seconds(seconds) => {
                 self.seconds = seconds;
-                Command::none()
+                Task::none()
             }
         }
     }
@@ -133,8 +133,8 @@ impl Timer {
 
         let column = column![time_container, start_button];
 
-        container(column.spacing(10).align_items(Alignment::Center))
-            .center()
+        container(column.spacing(10).align_x(Alignment::Center))
+            .center(Length::Fill)
             .into()
     }
 
