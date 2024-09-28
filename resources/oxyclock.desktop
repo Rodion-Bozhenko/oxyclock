@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Oxyclock
+Type=Application
+Exec=oxyclock
+Terminal=false
+Keywords=time;timer;clocks;
+Categories=Clock
+#Icon=com.system76.CosmicSettings
+StartupNotify=true
