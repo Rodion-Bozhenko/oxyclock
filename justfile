@@ -13,5 +13,8 @@ build:
   cargo build --release
 
 install:
-  install -Dm644 'resources/{{entry}} '{{appdir}}/{{entry}}'
-  install -Dm755 bin-src bin-dest
+  install '-Dm644' 'resources/{{entry}}' '{{appdir}}/{{entry}}'
+  install '-Dm755' '{{bin-src}}' '{{bin-dest}}'
+
+uninstall:
+  rm '{{appdir}}/{{entry}}' '{{bin-dest}}'

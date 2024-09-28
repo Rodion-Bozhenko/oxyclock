@@ -14,7 +14,7 @@ fn main() -> iced::Result {
     iced::application("Oxyclock", Timer::update, Timer::view)
         .theme(Timer::theme)
         .subscription(Timer::subscription)
-        .font(include_bytes!("../fonts/oxyclock-fonts.ttf").as_slice())
+        .font(include_bytes!("../resources/fonts/oxyclock-fonts.ttf").as_slice())
         .run()
 }
 
@@ -365,7 +365,8 @@ fn play_notification_sound() -> Result<(), NotificationError> {
     let (_stream, stream_handle) =
         rodio::OutputStream::try_default().map_err(NotificationError::StreamError)?;
     let file = std::io::BufReader::new(
-        std::fs::File::open("sounds/lofi-alarm-clock.mp3").map_err(NotificationError::FsError)?,
+        std::fs::File::open("resources/sounds/lofi-alarm-clock.mp3")
+            .map_err(NotificationError::FsError)?,
     );
     let sink = rodio::Sink::try_new(&stream_handle).map_err(NotificationError::PlayError)?;
     let source = rodio::Decoder::new_mp3(file).unwrap();

@@ -1,7 +1,7 @@
 # Maintainer: Rodion Bozhenko <rodion.bozhenko@tutanota.com>
 
 pkgname="oxyclock"
-pkgver=1.0.0
+pkgver=1.0.0.2.gc081541
 pkgrel=1
 pkgdesc="A simple timer app written in Rust with Iced"
 arch=("x86_64")
@@ -16,20 +16,17 @@ makedepends=(
   "just"
   "git"
 )
-source=("oxyclock::git://github.com/Rodion-Bozhenko/oxyclock.git")
+source=("oxyclock::https://github.com/Rodion-Bozhenko/oxyclock.git")
 sha256sums=("SKIP")
 
 pkgver() {
-  cd "$pkgname"
-  git decribe --tags
+  git describe --tags | sed 's/^epoch-//; s/-/./g'
 }
 
 build() {
-	cd "$pkgname$"
   just
 }
 
 package() {
-	cd "$pkgname"
-	make rootdir="{$pkgdir}" install
+	just rootdir="$pkgdir" install
 }
