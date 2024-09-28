@@ -365,7 +365,7 @@ fn play_notification_sound() -> Result<(), NotificationError> {
     let (_stream, stream_handle) =
         rodio::OutputStream::try_default().map_err(NotificationError::StreamError)?;
     let file = std::io::BufReader::new(
-        std::fs::File::open("resources/sounds/lofi-alarm-clock.mp3")
+        std::fs::File::open("/usr/share/sounds/lofi-alarm-clock.mp3")
             .map_err(NotificationError::FsError)?,
     );
     let sink = rodio::Sink::try_new(&stream_handle).map_err(NotificationError::PlayError)?;
