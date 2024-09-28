@@ -1,5 +1,3 @@
-use std::{fmt::Display, time::Duration};
-
 use iced::{
     alignment::{Horizontal, Vertical},
     border, theme,
@@ -9,6 +7,9 @@ use iced::{
     },
     Alignment, Border, Element, Font, Length, Shadow, Subscription, Task, Theme,
 };
+use std::{fmt::Display, time::Duration};
+
+mod custom_theme;
 
 fn main() -> iced::Result {
     iced::application("Oxyclock", Timer::update, Timer::view)
@@ -182,7 +183,7 @@ impl Timer {
     }
 
     fn theme(&self) -> theme::Theme {
-        theme::Theme::CatppuccinMocha
+        custom_theme::arc_dark()
     }
 
     fn update_elapsed_hms(&mut self) {
