@@ -7,7 +7,9 @@ use iced::{
     },
     Alignment, Border, Element, Font, Length, Shadow, Subscription, Task, Theme,
 };
-use std::{fmt::Display, time::Duration};
+use serde::{Deserialize, Serialize};
+use std::io::{BufReader, BufWriter, Write};
+use std::{fmt::Display, fs::File, time::Duration};
 use uuid::Uuid;
 
 mod custom_theme;
@@ -17,12 +19,12 @@ fn main() -> iced::Result {
         .theme(Oxyclock::theme)
         .subscription(Oxyclock::subscription)
         .font(include_bytes!("../resources/fonts/icons-font.ttf").as_slice())
-        .run()
+        .run_with(Oxyclock::load_state)
 }
 
 const TEXT_SIZE: u16 = 50;
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone)]
 enum Msg {
     AddTimer,
     DeleteTimer(Uuid),
@@ -43,7 +45,7 @@ struct Time {
     time: String,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Hash)]
 enum State {
     Running,
     NotificationSound,
@@ -62,7 +64,7 @@ impl Default for Oxyclock {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash)]
 struct Timer {
     id: Uuid,
     name: String,
@@ -100,8 +102,8 @@ impl Timer {
     fn subscription(&self) -> Subscription<Msg> {
         match self.state {
             State::Running => iced::time::every(Duration::from_secs(1))
-                .with(Msg::Tick(self.id))
-                .map(|s| s.0),
+                .with(self.id)
+                .map(|s| Msg::Tick(s.0)),
             State::NotificationSound => {
                 std::thread::spawn(|| {
                     if let Err(err) = play_notification_sound() {
@@ -216,11 +218,13 @@ impl Oxyclock {
         match msg {
             Msg::AddTimer => {
                 self.timers.push(Timer::new(uuid::Uuid::new_v4()));
+                self.save_state();
                 Task::none()
             }
             Msg::DeleteTimer(id) => {
                 let index = self.timers.iter().position(|t| t.id == id).unwrap();
                 self.timers.remove(index);
+                self.save_state();
                 Task::none()
             }
             Msg::Start(id) => {
@@ -297,6 +301,7 @@ impl Oxyclock {
             Msg::Name((id, name)) => {
                 let timer = self.timers.iter_mut().find(|t| t.id == id).unwrap();
                 timer.name = name;
+                self.save_state();
                 Task::none()
             }
         }
@@ -308,6 +313,30 @@ impl Oxyclock {
 
     fn theme(&self) -> theme::Theme {
         custom_theme::arc_dark()
+    }
+
+    fn load_state() -> (Oxyclock, Task<Msg>) {
+        // Since I don't care about Windows
+        #[allow(deprecated)]
+        let mut path = std::env::home_dir().unwrap();
+        path.push(std::path::Path::new(".local/state/oxyclock/state.json"));
+        let state_file = File::open(path).unwrap();
+        let reader = BufReader::new(state_file);
+        let timers: Vec<Timer> = serde_json::from_reader(reader).unwrap();
+        let state = Oxyclock { timers };
+        (state, Task::none())
+    }
+
+    fn save_state(&self) {
+        // Since I don't care about Windows
+        #[allow(deprecated)]
+        let mut path = std::env::home_dir().unwrap();
+        path.push(std::path::Path::new(".local/state/oxyclock/state.json"));
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let file = File::create(path).unwrap();
+        let mut writer = BufWriter::new(file);
+        serde_json::to_writer(&mut writer, &self.timers).unwrap();
+        writer.flush().unwrap();
     }
 }
 
