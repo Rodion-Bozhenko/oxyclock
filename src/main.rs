@@ -32,6 +32,7 @@ enum Msg {
     Hours(Time),
     Minutes(Time),
     Seconds(Time),
+    Name((usize, String)),
 }
 
 #[derive(Debug, Clone, Hash)]
@@ -62,6 +63,7 @@ impl Default for Oxyclock {
 #[derive(Clone)]
 struct Timer {
     id: usize,
+    name: String,
     time: Duration,
     elapsed: Duration,
     state: State,
@@ -74,6 +76,7 @@ impl Timer {
     fn new(id: usize) -> Self {
         Self {
             id,
+            name: "".to_string(),
             time: Duration::from_secs(0),
             elapsed: Duration::from_secs(0),
             state: State::Stopped,
@@ -144,7 +147,13 @@ impl Oxyclock {
             let time_container = if started {
                 running_time_container(timer.time)
             } else {
-                steady_time_container(timer.id, &timer.hours, &timer.minutes, &timer.seconds)
+                steady_time_container(
+                    timer.id,
+                    &timer.name,
+                    &timer.hours,
+                    &timer.minutes,
+                    &timer.seconds,
+                )
             };
 
             let timer_container = container(column![
@@ -263,6 +272,11 @@ impl Oxyclock {
                 timer.seconds = time;
                 Task::none()
             }
+            Msg::Name((id, name)) => {
+                let timer = self.timers.get_mut(id).unwrap();
+                timer.name = name;
+                Task::none()
+            }
         }
     }
 
@@ -297,7 +311,10 @@ where
                     .color
                     .scale_alpha(0.1)
                     .into(),
-                border: Border::default().rounded(8),
+                border: Border::default()
+                    .rounded(8)
+                    .width(1)
+                    .color(palette.background.scale_alpha(0.5)),
                 icon: palette.text,
                 placeholder: palette.text.scale_alpha(0.3),
                 value: palette.text,
@@ -417,6 +434,7 @@ fn running_time_container<'a>(time: Duration) -> Container<'a, Msg> {
 
 fn steady_time_container<'a>(
     id: usize,
+    name: &str,
     hours: &str,
     minutes: &str,
     seconds: &str,
@@ -430,7 +448,38 @@ fn steady_time_container<'a>(
     ]
     .align_y(Vertical::Center)
     .height(70);
-    container(time_inputs)
+    container(
+        column![
+            time_inputs,
+            text_input("Name", name)
+                .on_input(move |name| Msg::Name((id, name)))
+                .width(250f32)
+                .padding(8)
+                .size(12)
+                .style(|theme: &Theme, _| {
+                    let palette = theme.palette();
+                    text_input::Style {
+                        background: theme
+                            .extended_palette()
+                            .secondary
+                            .weak
+                            .color
+                            .scale_alpha(0.1)
+                            .into(),
+                        border: Border::default()
+                            .rounded(8)
+                            .width(1)
+                            .color(palette.background.scale_alpha(0.5)),
+                        icon: palette.text,
+                        placeholder: palette.text.scale_alpha(0.3),
+                        value: palette.text,
+                        selection: palette.primary.scale_alpha(0.7),
+                    }
+                })
+        ]
+        .spacing(10)
+        .align_x(Alignment::Center),
+    )
 }
 
 enum NotificationError {
