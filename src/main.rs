@@ -8,6 +8,7 @@ use iced::{
     Alignment, Border, Element, Font, Length, Shadow, Subscription, Task, Theme,
 };
 use std::{fmt::Display, time::Duration};
+use uuid::Uuid;
 
 mod custom_theme;
 
@@ -24,20 +25,21 @@ const TEXT_SIZE: u16 = 50;
 #[derive(Debug, Clone, Hash)]
 enum Msg {
     AddTimer,
-    Tick(usize),
-    Start(usize),
-    Stop(usize),
-    Reset(usize),
-    PlayNotification(usize),
+    DeleteTimer(Uuid),
+    Tick(Uuid),
+    Start(Uuid),
+    Stop(Uuid),
+    Reset(Uuid),
+    PlayNotification(Uuid),
     Hours(Time),
     Minutes(Time),
     Seconds(Time),
-    Name((usize, String)),
+    Name((Uuid, String)),
 }
 
 #[derive(Debug, Clone, Hash)]
 struct Time {
-    id: usize,
+    id: Uuid,
     time: String,
 }
 
@@ -62,7 +64,7 @@ impl Default for Oxyclock {
 
 #[derive(Clone)]
 struct Timer {
-    id: usize,
+    id: Uuid,
     name: String,
     time: Duration,
     elapsed: Duration,
@@ -73,7 +75,7 @@ struct Timer {
 }
 
 impl Timer {
-    fn new(id: usize) -> Self {
+    fn new(id: Uuid) -> Self {
         Self {
             id,
             name: "".to_string(),
@@ -115,7 +117,7 @@ impl Timer {
 
 impl Default for Timer {
     fn default() -> Self {
-        Self::new(0)
+        Self::new(uuid::Uuid::new_v4())
     }
 }
 
@@ -129,15 +131,15 @@ impl Oxyclock {
 
             let buttons = if started {
                 container(
-                    custom_button(pause_icon(), CustomButtonType::Primary)
+                    custom_button(pause_icon(), CustomButtonType::Primary, None, None)
                         .on_press(Msg::Stop(timer.id)),
                 )
             } else {
                 container(
                     row![
-                        custom_button(reset_icon(), CustomButtonType::Secondary)
+                        custom_button(reset_icon(), CustomButtonType::Secondary, None, None)
                             .on_press(Msg::Reset(timer.id)),
-                        custom_button(start_icon(), CustomButtonType::Primary)
+                        custom_button(start_icon(), CustomButtonType::Primary, None, None)
                             .on_press(Msg::Start(timer.id)),
                     ]
                     .spacing(10),
@@ -156,11 +158,26 @@ impl Oxyclock {
                 )
             };
 
+            let delete_button = container(
+                custom_button(
+                    delete_icon().size(14f32),
+                    CustomButtonType::Secondary,
+                    Some(30f32),
+                    Some(30f32),
+                )
+                .on_press(Msg::DeleteTimer(timer.id)),
+            )
+            .align_right(Length::Fill);
+
             let timer_container = container(column![
                 container(
-                    column![time_container, buttons]
-                        .align_x(Alignment::Center)
-                        .spacing(20)
+                    column![
+                        delete_button,
+                        column![time_container, buttons]
+                            .spacing(20)
+                            .align_x(Alignment::Center)
+                    ]
+                    .align_x(Alignment::Center)
                 )
                 .width(Length::Fill)
                 .align_x(Alignment::Center)
@@ -198,11 +215,16 @@ impl Oxyclock {
     fn update(&mut self, msg: Msg) -> Task<Msg> {
         match msg {
             Msg::AddTimer => {
-                self.timers.push(Timer::new(self.timers.len()));
+                self.timers.push(Timer::new(uuid::Uuid::new_v4()));
+                Task::none()
+            }
+            Msg::DeleteTimer(id) => {
+                let index = self.timers.iter().position(|t| t.id == id).unwrap();
+                self.timers.remove(index);
                 Task::none()
             }
             Msg::Start(id) => {
-                let timer = self.timers.get_mut(id).unwrap();
+                let timer = self.timers.iter_mut().find(|x| x.id == id).unwrap();
                 let duration = get_duration(&timer.hours, &timer.minutes, &timer.seconds);
                 if let Ok(duration) = duration {
                     timer.state = State::Running;
@@ -212,25 +234,25 @@ impl Oxyclock {
                 Task::none()
             }
             Msg::Stop(id) => {
-                let timer = self.timers.get_mut(id).unwrap();
+                let timer = self.timers.iter_mut().find(|t| t.id == id).unwrap();
                 timer.state = State::Stopped;
                 timer.update_elapsed_hms();
                 Task::none()
             }
             Msg::Reset(id) => {
-                let timer = self.timers.get_mut(id).unwrap();
+                let timer = self.timers.iter_mut().find(|t| t.id == id).unwrap();
                 timer.state = State::Stopped;
                 timer.time = Duration::from_secs(0);
                 timer.update_elapsed_hms();
                 Task::none()
             }
             Msg::PlayNotification(id) => {
-                let timer = self.timers.get_mut(id).unwrap();
+                let timer = self.timers.iter_mut().find(|t| t.id == id).unwrap();
                 timer.state = State::NotificationSound;
                 Task::done(Msg::Stop(id))
             }
             Msg::Tick(id) => {
-                let timer = self.timers.get_mut(id).unwrap();
+                let timer = self.timers.iter_mut().find(|t| t.id == id).unwrap();
 
                 if timer.state != State::Running {
                     return Task::none();
@@ -258,22 +280,22 @@ impl Oxyclock {
                 Task::none()
             }
             Msg::Hours(Time { id, time }) => {
-                let timer = self.timers.get_mut(id).unwrap();
+                let timer = self.timers.iter_mut().find(|t| t.id == id).unwrap();
                 timer.hours = time;
                 Task::none()
             }
             Msg::Minutes(Time { id, time }) => {
-                let timer = self.timers.get_mut(id).unwrap();
+                let timer = self.timers.iter_mut().find(|t| t.id == id).unwrap();
                 timer.minutes = time;
                 Task::none()
             }
             Msg::Seconds(Time { id, time }) => {
-                let timer = self.timers.get_mut(id).unwrap();
+                let timer = self.timers.iter_mut().find(|t| t.id == id).unwrap();
                 timer.seconds = time;
                 Task::none()
             }
             Msg::Name((id, name)) => {
-                let timer = self.timers.get_mut(id).unwrap();
+                let timer = self.timers.iter_mut().find(|t| t.id == id).unwrap();
                 timer.name = name;
                 Task::none()
             }
@@ -290,7 +312,7 @@ impl Oxyclock {
 }
 
 fn time_input<F>(
-    timer_id: usize,
+    timer_id: Uuid,
     value: &str,
     msg: F,
 ) -> TextInput<'static, Msg, Theme, iced::Renderer>
@@ -338,19 +360,20 @@ enum CustomButtonType {
 fn custom_button<'a>(
     content: impl Into<Element<'a, Msg>>,
     button_type: CustomButtonType,
+    width: Option<f32>,
+    height: Option<f32>,
 ) -> Button<'a, Msg> {
     button(container(content).center(Length::Fill))
-        .width(60)
-        .height(40)
+        .width(width.unwrap_or(60f32))
+        .height(height.unwrap_or(40f32))
         .style(move |theme: &Theme, status: button::Status| {
             let palette = theme.palette();
             let ext_palette = theme.extended_palette();
             match status {
                 button::Status::Active => button::Style {
-                    background: Some(if button_type == CustomButtonType::Primary {
-                        ext_palette.primary.strong.color.into()
-                    } else {
-                        ext_palette.secondary.strong.color.into()
+                    background: Some(match button_type {
+                        CustomButtonType::Primary => ext_palette.primary.strong.color.into(),
+                        CustomButtonType::Secondary => ext_palette.secondary.strong.color.into(),
                     }),
                     text_color: palette.text,
                     border: border::rounded(8.0),
@@ -433,7 +456,7 @@ fn running_time_container<'a>(time: Duration) -> Container<'a, Msg> {
 }
 
 fn steady_time_container<'a>(
-    id: usize,
+    id: Uuid,
     name: &str,
     hours: &str,
     minutes: &str,
@@ -513,11 +536,13 @@ fn play_notification_sound() -> Result<(), NotificationError> {
 }
 
 fn top_bar<'a>() -> Container<'a, Msg> {
-    container(custom_button(plus_icon(), CustomButtonType::Primary).on_press(Msg::AddTimer))
-        .padding(10)
-        .width(Length::Fill)
-        .align_y(Alignment::Start)
-        .align_x(Alignment::End)
+    container(
+        custom_button(plus_icon(), CustomButtonType::Primary, None, None).on_press(Msg::AddTimer),
+    )
+    .padding(10)
+    .width(Length::Fill)
+    .align_y(Alignment::Start)
+    .align_x(Alignment::End)
 }
 
 fn scrollable_content<'a>(content: impl Into<Element<'a, Msg>>) -> Scrollable<'a, Msg> {
@@ -544,23 +569,27 @@ fn scrollable_content<'a>(content: impl Into<Element<'a, Msg>>) -> Scrollable<'a
         })
 }
 
-fn start_icon<'a>() -> Element<'a, Msg> {
+fn start_icon<'a>() -> Text<'a> {
     icon('\u{e802}')
 }
 
-fn plus_icon<'a>() -> Element<'a, Msg> {
+fn plus_icon<'a>() -> Text<'a> {
     icon('\u{e800}')
 }
 
-fn pause_icon<'a>() -> Element<'a, Msg> {
+fn pause_icon<'a>() -> Text<'a> {
     icon('\u{e803}')
 }
 
-fn reset_icon<'a>() -> Element<'a, Msg> {
+fn reset_icon<'a>() -> Text<'a> {
     icon('\u{e801}')
 }
 
-fn icon<'a>(codepoint: char) -> Element<'a, Msg> {
+fn delete_icon<'a>() -> Text<'a> {
+    icon('\u{e804}')
+}
+
+fn icon<'a>(codepoint: char) -> Text<'a> {
     const ICON_FONT: Font = Font::with_name("icons-font");
-    text(codepoint).font(ICON_FONT).into()
+    text(codepoint).font(ICON_FONT)
 }
