@@ -19,6 +19,10 @@ mod utils;
 
 fn main() -> iced::Result {
     iced::daemon(Oxyclock::title, Oxyclock::update, Oxyclock::view)
+        .settings(iced::Settings {
+            id: Some("oxyclock".to_string()),
+            ..iced::Settings::default()
+        })
         .theme(Oxyclock::theme)
         .subscription(Oxyclock::subscription)
         .font(include_bytes!("../resources/fonts/icons-font.ttf").as_slice())
