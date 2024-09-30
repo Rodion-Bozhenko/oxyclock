@@ -66,6 +66,7 @@ impl Timer {
     }
 
     pub fn subscription(&self) -> Subscription<Msg> {
+        println!("SUBSCRIPTION. STATE: {:?}", self.state);
         match self.state {
             State::Running => iced::time::every(Duration::from_secs(1))
                 .with(self.id)

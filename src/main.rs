@@ -6,7 +6,7 @@ use iced::{
     alignment::Horizontal,
     theme,
     widget::{center, column, container, horizontal_space, row},
-    Alignment, Border, Element, Length, Shadow, Subscription, Task, Theme,
+    window, Alignment, Border, Element, Length, Shadow, Subscription, Task, Theme,
 };
 use std::io::{BufReader, BufWriter, Write};
 use std::{fs::File, time::Duration};
@@ -18,15 +18,21 @@ mod timer;
 mod utils;
 
 fn main() -> iced::Result {
-    iced::application("Oxyclock", Oxyclock::update, Oxyclock::view)
+    iced::daemon(Oxyclock::title, Oxyclock::update, Oxyclock::view)
         .theme(Oxyclock::theme)
         .subscription(Oxyclock::subscription)
         .font(include_bytes!("../resources/fonts/icons-font.ttf").as_slice())
-        .run_with(Oxyclock::load_state)
+        .run_with(|| {
+            let (_, task) = window::open(window::Settings::default());
+            let (state, _) = Oxyclock::load_state();
+
+            (state, task.map(Msg::WindowOpened))
+        })
 }
 
 #[derive(Debug, Clone)]
 enum Msg {
+    WindowOpened(window::Id),
     AddTimer,
     SaveTimer(Uuid),
     DeleteTimer(Uuid),
@@ -60,7 +66,10 @@ impl Default for Oxyclock {
 }
 
 impl Oxyclock {
-    fn view(&self) -> Element<'_, Msg> {
+    fn title(&self, _window_id: window::Id) -> String {
+        "Oxyclock".to_string()
+    }
+    fn view(&self, _window_id: window::Id) -> Element<'_, Msg> {
         let mut timers_container = column![].width(Length::Fill).align_x(Horizontal::Center);
         for timer in self.timers.iter() {
             let started = timer.state == timer::State::Running;
@@ -167,6 +176,7 @@ impl Oxyclock {
 
     fn update(&mut self, msg: Msg) -> Task<Msg> {
         match msg {
+            Msg::WindowOpened(_id) => Task::none(),
             Msg::AddTimer => {
                 self.timers.push(timer::Timer::new(uuid::Uuid::new_v4()));
                 self.save_state(&self.timers);
@@ -222,6 +232,10 @@ impl Oxyclock {
             }
             Msg::Tick(id) => {
                 let timer = self.timers.iter_mut().find(|t| t.id == id).unwrap();
+                println!(
+                    "TICK. CURRENT TIME: {:?}, STATE: {:?}",
+                    timer.time, timer.state
+                );
 
                 if timer.state != timer::State::Running {
                     return Task::none();
@@ -246,6 +260,10 @@ impl Oxyclock {
                 let tick = Duration::from_secs(1);
                 timer.time -= tick;
                 timer.elapsed += tick;
+                println!(
+                    "UPDATE TIME. TIME: {:?}, ELAPSED: {:?}",
+                    timer.time, timer.elapsed
+                );
                 Task::none()
             }
             Msg::Hours(Time { id, time }) => {
@@ -276,7 +294,7 @@ impl Oxyclock {
         Subscription::batch(self.timers.iter().map(|t| t.subscription()))
     }
 
-    fn theme(&self) -> theme::Theme {
+    fn theme(&self, _window_id: window::Id) -> theme::Theme {
         custom_theme::arc_dark()
     }
 
