@@ -57,6 +57,7 @@ where
 pub enum CustomButtonType {
     Primary,
     Secondary,
+    Success,
 }
 
 pub fn custom_button<'a>(
@@ -76,6 +77,7 @@ pub fn custom_button<'a>(
                     background: Some(match button_type {
                         CustomButtonType::Primary => ext_palette.primary.strong.color.into(),
                         CustomButtonType::Secondary => ext_palette.secondary.strong.color.into(),
+                        CustomButtonType::Success => ext_palette.success.strong.color.into(),
                     }),
                     text_color: palette.text,
                     border: border::rounded(8.0),
@@ -245,6 +247,9 @@ pub fn delete_icon<'a>() -> Text<'a> {
     icon('\u{e804}')
 }
 
+pub fn save_icon<'a>() -> Text<'a> {
+    icon('\u{e805}')
+}
 fn icon<'a>(codepoint: char) -> Text<'a> {
     const ICON_FONT: Font = Font::with_name("icons-font");
     text(codepoint).font(ICON_FONT)

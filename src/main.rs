@@ -28,6 +28,7 @@ fn main() -> iced::Result {
 #[derive(Debug, Clone)]
 enum Msg {
     AddTimer,
+    SaveTimer(Uuid),
     DeleteTimer(Uuid),
     Tick(Uuid),
     Start(Uuid),
@@ -105,12 +106,27 @@ impl Oxyclock {
                 )
                 .on_press(Msg::DeleteTimer(timer.id)),
             )
+            .align_left(Length::Fill);
+
+            let save_button = container(
+                custom_button(
+                    save_icon().size(14f32),
+                    CustomButtonType::Success,
+                    Some(30f32),
+                    Some(30f32),
+                )
+                .on_press(Msg::SaveTimer(timer.id)),
+            )
             .align_right(Length::Fill);
 
             let timer_container = container(column![
                 container(
                     column![
-                        delete_button,
+                        if started {
+                            row![].height(30)
+                        } else {
+                            row![delete_button, save_button].width(Length::Fill)
+                        },
                         column![time_container, buttons]
                             .spacing(20)
                             .align_x(Alignment::Center)
@@ -154,13 +170,27 @@ impl Oxyclock {
         match msg {
             Msg::AddTimer => {
                 self.timers.push(timer::Timer::new(uuid::Uuid::new_v4()));
-                self.save_state();
+                self.save_state(&self.timers);
                 Task::none()
+            }
+            Msg::SaveTimer(id) => {
+                let (index, timer) = self
+                    .timers
+                    .iter()
+                    .enumerate()
+                    .find(|(_, t)| t.id == id)
+                    .unwrap();
+
+                let (mut state, task) = Oxyclock::load_state();
+                state.timers[index] = timer.clone();
+                self.save_state(&state.timers);
+
+                task
             }
             Msg::DeleteTimer(id) => {
                 let index = self.timers.iter().position(|t| t.id == id).unwrap();
                 self.timers.remove(index);
-                self.save_state();
+                self.save_state(&self.timers);
                 Task::none()
             }
             Msg::Start(id) => {
@@ -237,7 +267,7 @@ impl Oxyclock {
             Msg::Name((id, name)) => {
                 let timer = self.timers.iter_mut().find(|t| t.id == id).unwrap();
                 timer.name = name;
-                self.save_state();
+                self.save_state(&self.timers);
                 Task::none()
             }
         }
@@ -263,7 +293,7 @@ impl Oxyclock {
         (state, Task::none())
     }
 
-    fn save_state(&self) {
+    fn save_state(&self, timers: &Vec<timer::Timer>) {
         // Since I don't care about Windows
         #[allow(deprecated)]
         let mut path = std::env::home_dir().unwrap();
@@ -271,7 +301,7 @@ impl Oxyclock {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         let file = File::create(path).unwrap();
         let mut writer = BufWriter::new(file);
-        serde_json::to_writer(&mut writer, &self.timers).unwrap();
+        serde_json::to_writer(&mut writer, timers).unwrap();
         writer.flush().unwrap();
     }
 }
