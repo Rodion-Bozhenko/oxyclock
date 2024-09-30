@@ -1,6 +1,6 @@
 use components::{
-    custom_button, delete_icon, pause_icon, reset_icon, running_time_container, scrollable_content,
-    start_icon, steady_time_container, top_bar, CustomButtonType,
+    custom_button, delete_icon, pause_icon, reset_icon, save_icon, scrollable_content, start_icon,
+    time_container, top_bar, CustomButtonType,
 };
 use iced::{
     alignment::Horizontal,
@@ -60,11 +60,9 @@ impl Default for Oxyclock {
 }
 
 impl Oxyclock {
-    fn view(&self) -> Element<Msg> {
-        let mut timers = column![].width(Length::Fill).align_x(Horizontal::Center);
+    fn view(&self) -> Element<'_, Msg> {
+        let mut timers_container = column![].width(Length::Fill).align_x(Horizontal::Center);
         for timer in self.timers.clone() {
-            let timer = timer.clone();
-
             let started = timer.state == timer::State::Running;
 
             let buttons = if started {
@@ -86,14 +84,15 @@ impl Oxyclock {
 
             let time_container = if started {
                 let (hours, minutes, seconds) = timer.time_to_hms_string();
-                running_time_container(hours, minutes, seconds)
+                time_container(timer.id, &timer.name, hours, minutes, seconds, true)
             } else {
-                steady_time_container(
+                time_container(
                     timer.id,
                     &timer.name,
-                    &timer.hours,
-                    &timer.minutes,
-                    &timer.seconds,
+                    timer.hours,
+                    timer.minutes,
+                    timer.seconds,
+                    false,
                 )
             };
 
@@ -150,13 +149,13 @@ impl Oxyclock {
             .width(400f32)
             .align_x(Alignment::Center);
 
-            timers = timers.push(timer_container);
+            timers_container = timers_container.push(timer_container);
         }
 
         container(center(
             column![
                 top_bar(),
-                scrollable_content(timers),
+                scrollable_content(timers_container),
                 horizontal_space().height(Length::FillPortion(1))
             ]
             .spacing(10),

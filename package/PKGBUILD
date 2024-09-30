@@ -1,7 +1,7 @@
 # Maintainer: Rodion Bozhenko <rodion.bozhenko@tutanota.com>
 
 pkgname="oxyclock"
-pkgver=1.0.0.4.ge9fe100
+pkgver=2.1.0
 pkgrel=1
 pkgdesc="A simple timer app written in Rust with Iced"
 arch=("x86_64")

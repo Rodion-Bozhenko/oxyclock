@@ -13,46 +13,6 @@ use crate::{Msg, Time};
 
 const TEXT_SIZE: u16 = 50;
 
-pub fn time_input<F>(
-    timer_id: Uuid,
-    value: &str,
-    msg: F,
-) -> TextInput<'static, Msg, Theme, iced::Renderer>
-where
-    F: 'static + Fn(Time) -> Msg,
-{
-    text_input("", value)
-        .align_x(Horizontal::Center)
-        .width(70)
-        .size(TEXT_SIZE)
-        .style(|theme: &Theme, _| {
-            let palette = theme.palette();
-            text_input::Style {
-                background: theme
-                    .extended_palette()
-                    .secondary
-                    .weak
-                    .color
-                    .scale_alpha(0.1)
-                    .into(),
-                border: Border::default()
-                    .rounded(8)
-                    .width(1)
-                    .color(palette.background.scale_alpha(0.5)),
-                icon: palette.text,
-                placeholder: palette.text.scale_alpha(0.3),
-                value: palette.text,
-                selection: palette.primary.scale_alpha(0.7),
-            }
-        })
-        .on_input(move |value| {
-            msg(Time {
-                id: timer_id,
-                time: value,
-            })
-        })
-}
-
 #[derive(PartialEq)]
 pub enum CustomButtonType {
     Primary,
@@ -105,29 +65,123 @@ pub fn custom_button<'a>(
         })
 }
 
-pub fn running_time_container<'a>(
+pub fn time_container<'a>(
+    timer_id: Uuid,
+    name: &str,
     hours: String,
     minutes: String,
     seconds: String,
+    running: bool,
 ) -> Container<'a, Msg> {
-    fn time_text<'a>(t: String) -> Text<'a> {
-        text(t)
-            .width(70)
-            .size(TEXT_SIZE)
-            .align_x(Horizontal::Center)
-    }
-
     let time_row = row![
-        time_text(hours),
+        if running {
+            time_text(hours)
+        } else {
+            time_input(timer_id, &hours, Msg::Hours)
+        },
         text(":").size(TEXT_SIZE).align_x(Horizontal::Center),
-        time_text(minutes),
+        if running {
+            time_text(minutes)
+        } else {
+            time_input(timer_id, &minutes, Msg::Minutes)
+        },
         text(":").size(TEXT_SIZE).align_x(Horizontal::Center),
-        time_text(seconds)
+        if running {
+            time_text(seconds)
+        } else {
+            time_input(timer_id, &seconds, Msg::Seconds)
+        },
     ]
     .height(70)
     .align_y(Vertical::Center);
 
-    container(time_row).style(|theme: &Theme| container::Style {
+    container(
+        column![time_row, name_input(timer_id, name, true)]
+            .spacing(10)
+            .align_x(Alignment::Center),
+    )
+}
+
+fn name_input<'a>(timer_id: Uuid, name: &str, disabled: bool) -> TextInput<'a, Msg> {
+    let input = text_input("Name", name)
+        .width(250f32)
+        .padding(8)
+        .size(12)
+        .style(|theme: &Theme, _| {
+            let palette = theme.palette();
+            text_input::Style {
+                background: theme
+                    .extended_palette()
+                    .secondary
+                    .weak
+                    .color
+                    .scale_alpha(0.1)
+                    .into(),
+                border: Border::default()
+                    .rounded(8)
+                    .width(1)
+                    .color(palette.background.scale_alpha(0.5)),
+                icon: palette.text,
+                placeholder: palette.text.scale_alpha(0.3),
+                value: palette.text,
+                selection: palette.primary.scale_alpha(0.7),
+            }
+        });
+    if disabled {
+        input
+    } else {
+        input.on_input(move |name| Msg::Name((timer_id, name)))
+    }
+}
+
+fn time_input<'a, F>(timer_id: Uuid, value: &str, msg: F) -> Container<'a, Msg>
+where
+    F: 'static + Fn(Time) -> Msg,
+{
+    container(
+        text_input("", value)
+            .align_x(Horizontal::Center)
+            .width(70)
+            .size(TEXT_SIZE)
+            .style(|theme: &Theme, _| {
+                let palette = theme.palette();
+                text_input::Style {
+                    background: theme
+                        .extended_palette()
+                        .secondary
+                        .weak
+                        .color
+                        .scale_alpha(0.1)
+                        .into(),
+                    border: Border::default()
+                        .rounded(8)
+                        .width(1)
+                        .color(palette.background.scale_alpha(0.5)),
+                    icon: palette.text,
+                    placeholder: palette.text.scale_alpha(0.3),
+                    value: palette.text,
+                    selection: palette.primary.scale_alpha(0.7),
+                }
+            })
+            .on_input(move |value| {
+                msg(Time {
+                    id: timer_id,
+                    time: value,
+                })
+            }),
+    )
+}
+
+fn time_text<'a>(t: String) -> Container<'a, Msg> {
+    container(
+        text(t)
+            .width(70)
+            .height(70f32 + text_input::DEFAULT_PADDING.top)
+            .size(TEXT_SIZE)
+            .align_y(Alignment::Center)
+            .align_x(Alignment::Center),
+    )
+    .style(|theme: &Theme| container::Style {
         text_color: None,
         background: Some(
             theme
@@ -138,59 +192,12 @@ pub fn running_time_container<'a>(
                 .scale_alpha(0.1)
                 .into(),
         ),
-        border: Border::default().rounded(8),
+        border: Border::default()
+            .rounded(8)
+            .width(1)
+            .color(theme.palette().background.scale_alpha(0.5)),
         shadow: Shadow::default(),
     })
-}
-
-pub fn steady_time_container<'a>(
-    id: Uuid,
-    name: &str,
-    hours: &str,
-    minutes: &str,
-    seconds: &str,
-) -> Container<'a, Msg> {
-    let time_inputs = row![
-        time_input(id, hours, Msg::Hours),
-        text(":").size(TEXT_SIZE),
-        time_input(id, minutes, Msg::Minutes),
-        text(":").size(TEXT_SIZE),
-        time_input(id, seconds, Msg::Seconds),
-    ]
-    .align_y(Vertical::Center)
-    .height(70);
-    container(
-        column![
-            time_inputs,
-            text_input("Name", name)
-                .on_input(move |name| Msg::Name((id, name)))
-                .width(250f32)
-                .padding(8)
-                .size(12)
-                .style(|theme: &Theme, _| {
-                    let palette = theme.palette();
-                    text_input::Style {
-                        background: theme
-                            .extended_palette()
-                            .secondary
-                            .weak
-                            .color
-                            .scale_alpha(0.1)
-                            .into(),
-                        border: Border::default()
-                            .rounded(8)
-                            .width(1)
-                            .color(palette.background.scale_alpha(0.5)),
-                        icon: palette.text,
-                        placeholder: palette.text.scale_alpha(0.3),
-                        value: palette.text,
-                        selection: palette.primary.scale_alpha(0.7),
-                    }
-                })
-        ]
-        .spacing(10)
-        .align_x(Alignment::Center),
-    )
 }
 
 pub fn top_bar<'a>() -> Container<'a, Msg> {
