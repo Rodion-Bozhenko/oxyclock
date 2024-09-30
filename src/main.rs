@@ -62,7 +62,7 @@ impl Default for Oxyclock {
 impl Oxyclock {
     fn view(&self) -> Element<'_, Msg> {
         let mut timers_container = column![].width(Length::Fill).align_x(Horizontal::Center);
-        for timer in self.timers.clone() {
+        for timer in self.timers.iter() {
             let started = timer.state == timer::State::Running;
 
             let buttons = if started {
@@ -89,9 +89,9 @@ impl Oxyclock {
                 time_container(
                     timer.id,
                     &timer.name,
-                    timer.hours,
-                    timer.minutes,
-                    timer.seconds,
+                    timer.hours.clone(),
+                    timer.minutes.clone(),
+                    timer.seconds.clone(),
                     false,
                 )
             };
